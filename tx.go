@@ -156,11 +156,11 @@ func main() {
 	app.Usage = "create a Ripple transaction. Sequence and seed must be specified for every command."
 	app.Version = "0.1"
 	app.Flags = []cli.Flag{
-		cli.StringFlag{"seed,s", "", "the seed for the submitting account"},
-		cli.IntFlag{"fee,f", 10, "the fee you want to pay"},
-		cli.IntFlag{"sequence,q", 0, "the sequence for the transaction"},
-		cli.IntFlag{"lastledger,l", 0, "highest ledger number that the transaction can appear in"},
-		cli.BoolFlag{"submit,t", "submits the transaction via websocket"},
+		cli.StringFlag{Name: "seed,s", Value: "", Usage: "the seed for the submitting account"},
+		cli.IntFlag{Name: "fee,f", Value: 10, Usage: "the fee you want to pay"},
+		cli.IntFlag{Name: "sequence,q", Value: 0, Usage: "the sequence for the transaction"},
+		cli.IntFlag{Name: "lastledger,l", Value: 0, Usage: "highest ledger number that the transaction can appear in"},
+		cli.BoolFlag{Name: "submit,t", Usage: "submits the transaction via websocket"},
 	}
 	app.Before = common
 	app.Commands = []cli.Command{{
@@ -170,15 +170,15 @@ func main() {
 		Description: "seed, sequence, destination and amount are required",
 		Action:      payment,
 		Flags: []cli.Flag{
-			cli.StringFlag{"dest,d", "", "destination account"},
-			cli.StringFlag{"amount,a", "", "amount to send"},
-			cli.IntFlag{"tag,t", 0, "destination tag"},
-			cli.StringFlag{"invoice,i", "", "invoice id (will be passed through SHA512Half)"},
-			cli.StringFlag{"paths", "", "paths"},
-			cli.StringFlag{"sendmax,m", "", "maximum to send"},
-			cli.BoolFlag{"nodirect,r", "do not look for direct path"},
-			cli.BoolFlag{"partial,p", "permit partial payment"},
-			cli.BoolFlag{"limit,l", "limit quality"},
+			cli.StringFlag{Name: "dest,d", Value: "", Usage: "destination account"},
+			cli.StringFlag{Name: "amount,a", Value: "", Usage: "amount to send"},
+			cli.IntFlag{Name: "tag,t", Value: 0, Usage: "destination tag"},
+			cli.StringFlag{Name: "invoice,i", Value: "", Usage: "invoice id (will be passed through SHA512Half)"},
+			cli.StringFlag{Name: "paths", Value: "", Usage: "paths"},
+			cli.StringFlag{Name: "sendmax,m", Value: "", Usage: "maximum to send"},
+			cli.BoolFlag{Name: "nodirect,r", Usage: "do not look for direct path"},
+			cli.BoolFlag{Name: "partial,p", Usage: "permit partial payment"},
+			cli.BoolFlag{Name: "limit,l", Usage: "limit quality"},
 		},
 	}}
 	app.Run(os.Args)
