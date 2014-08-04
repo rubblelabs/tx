@@ -123,12 +123,21 @@ func payment(c *cli.Context) {
 	sign(c, payment, 0)
 	hash, raw, err := data.Raw(payment)
 	checkErr(err)
-	fmt.Printf("Hash: %X\nRaw:%X\n", hash, raw)
 
-	// Print it in JSON
-	out, err := json.Marshal(payment)
-	checkErr(err)
-	fmt.Println(string(out))
+	if !c.GlobalBool("json") && !c.GlobalBool("binary") {
+		fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
+	}
+
+	if c.GlobalBool("json") || !c.GlobalBool("binary") {
+		// Print it in JSON
+		out, err := json.Marshal(payment)
+		checkErr(err)
+		fmt.Println(string(out))
+	}
+
+	if c.GlobalBool("binary") {
+		os.Stdout.Write(raw)
+	}
 
 	if c.GlobalBool("submit") {
 		submitTx(payment)
@@ -161,6 +170,8 @@ func main() {
 		cli.IntFlag{Name: "sequence,q", Value: 0, Usage: "the sequence for the transaction"},
 		cli.IntFlag{Name: "lastledger,l", Value: 0, Usage: "highest ledger number that the transaction can appear in"},
 		cli.BoolFlag{Name: "submit,t", Usage: "submits the transaction via websocket"},
+		cli.BoolFlag{Name: "binary,b", Usage: "raw output in binary"},
+		cli.BoolFlag{Name: "json,j", Usage: "output only the resulting JSON"},
 	}
 	app.Before = common
 	app.Commands = []cli.Command{{
