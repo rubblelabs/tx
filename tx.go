@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/rubblelabs/ripple/crypto"
 	"github.com/rubblelabs/ripple/data"
 	"github.com/rubblelabs/ripple/websockets"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -148,18 +150,21 @@ func payment(c *cli.Context) {
 	outputTx(c, payment)
 }
 
+func submit(c *cli.Context) {
+	bs, err := ioutil.ReadAll(os.Stdin)
+	checkErr(err)
 
+	tx, err := data.ReadTransaction(bytes.NewReader(bs))
+	checkErr(err)
+
+	outputTx(c, tx)
+}
 
 func common(c *cli.Context) error {
-	if c.GlobalString("seed") == "" {
-		cli.ShowAppHelp(c)
-		os.Exit(1)
+	if c.GlobalString("seed") != "" {
+		key = parseSeed(c.String("seed"))
 	}
-	if c.GlobalInt("sequence") == 0 {
-		cli.ShowAppHelp(c)
-		os.Exit(1)
-	}
-	key = parseSeed(c.String("seed"))
+
 	return nil
 }
 
@@ -197,6 +202,12 @@ func main() {
 			cli.BoolFlag{Name: "partial,p", Usage: "permit partial payment"},
 			cli.BoolFlag{Name: "limit,l", Usage: "limit quality"},
 		},
+	}, {
+		Name:        "submit",
+		ShortName:   "s",
+		Usage:       "submit a transaction",
+		Description: "pass a transaction on stdin",
+		Action:      submit,
 	}}
 	app.Run(os.Args)
 }
