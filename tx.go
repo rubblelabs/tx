@@ -86,6 +86,30 @@ func submitTx(tx data.Transaction) {
 	os.Exit(0)
 }
 
+func outputTx(c *cli.Context, tx data.Transaction) {
+	if !c.GlobalBool("json") {
+		hash, raw, err := data.Raw(tx)
+		checkErr(err)
+
+		if c.GlobalBool("binary") {
+			os.Stdout.Write(raw)
+		} else {
+			fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
+		}
+	}
+
+	if c.GlobalBool("json") || !c.GlobalBool("binary") {
+		// Print it in JSON
+		out, err := json.Marshal(tx)
+		checkErr(err)
+		fmt.Println(string(out))
+	}
+
+	if c.GlobalBool("submit") {
+		submitTx(tx)
+	}
+}
+
 func payment(c *cli.Context) {
 	// Validate and parse required fields
 	if c.String("dest") == "" || c.String("amount") == "" || key == nil {
@@ -121,28 +145,10 @@ func payment(c *cli.Context) {
 	}
 
 	sign(c, payment, 0)
-	hash, raw, err := data.Raw(payment)
-	checkErr(err)
-
-	if !c.GlobalBool("json") && !c.GlobalBool("binary") {
-		fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
-	}
-
-	if c.GlobalBool("json") || !c.GlobalBool("binary") {
-		// Print it in JSON
-		out, err := json.Marshal(payment)
-		checkErr(err)
-		fmt.Println(string(out))
-	}
-
-	if c.GlobalBool("binary") {
-		os.Stdout.Write(raw)
-	}
-
-	if c.GlobalBool("submit") {
-		submitTx(payment)
-	}
+	outputTx(c, payment)
 }
+
+
 
 func common(c *cli.Context) error {
 	if c.GlobalString("seed") == "" {
