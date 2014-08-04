@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/rubblelabs/ripple/crypto"
 	"github.com/rubblelabs/ripple/data"
 	"github.com/rubblelabs/ripple/websockets"
+	"io/ioutil"
 	"os"
 	"strings"
 )
@@ -86,6 +88,30 @@ func submitTx(tx data.Transaction) {
 	os.Exit(0)
 }
 
+func outputTx(c *cli.Context, tx data.Transaction) {
+	if !c.GlobalBool("json") {
+		hash, raw, err := data.Raw(tx)
+		checkErr(err)
+
+		if c.GlobalBool("binary") {
+			os.Stdout.Write(raw)
+		} else {
+			fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
+		}
+	}
+
+	if c.GlobalBool("json") || !c.GlobalBool("binary") {
+		// Print it in JSON
+		out, err := json.Marshal(tx)
+		checkErr(err)
+		fmt.Println(string(out))
+	}
+
+	if c.GlobalBool("submit") {
+		submitTx(tx)
+	}
+}
+
 func payment(c *cli.Context) {
 	// Validate and parse required fields
 	if c.String("dest") == "" || c.String("amount") == "" || key == nil {
@@ -121,39 +147,24 @@ func payment(c *cli.Context) {
 	}
 
 	sign(c, payment, 0)
-	hash, raw, err := data.Raw(payment)
+	outputTx(c, payment)
+}
+
+func submit(c *cli.Context) {
+	bs, err := ioutil.ReadAll(os.Stdin)
 	checkErr(err)
 
-	if !c.GlobalBool("json") && !c.GlobalBool("binary") {
-		fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
-	}
+	tx, err := data.ReadTransaction(bytes.NewReader(bs))
+	checkErr(err)
 
-	if c.GlobalBool("json") || !c.GlobalBool("binary") {
-		// Print it in JSON
-		out, err := json.Marshal(payment)
-		checkErr(err)
-		fmt.Println(string(out))
-	}
-
-	if c.GlobalBool("binary") {
-		os.Stdout.Write(raw)
-	}
-
-	if c.GlobalBool("submit") {
-		submitTx(payment)
-	}
+	outputTx(c, tx)
 }
 
 func common(c *cli.Context) error {
-	if c.GlobalString("seed") == "" {
-		cli.ShowAppHelp(c)
-		os.Exit(1)
+	if c.GlobalString("seed") != "" {
+		key = parseSeed(c.String("seed"))
 	}
-	if c.GlobalInt("sequence") == 0 {
-		cli.ShowAppHelp(c)
-		os.Exit(1)
-	}
-	key = parseSeed(c.String("seed"))
+
 	return nil
 }
 
@@ -191,6 +202,12 @@ func main() {
 			cli.BoolFlag{Name: "partial,p", Usage: "permit partial payment"},
 			cli.BoolFlag{Name: "limit,l", Usage: "limit quality"},
 		},
+	}, {
+		Name:        "submit",
+		ShortName:   "s",
+		Usage:       "submit a transaction",
+		Description: "pass a transaction on stdin",
+		Action:      submit,
 	}}
 	app.Run(os.Args)
 }
