@@ -150,6 +150,47 @@ func payment(c *cli.Context) {
 	outputTx(c, payment)
 }
 
+func trust(c *cli.Context) {
+	// Validate and parse required fields
+	if c.String("amount") == "" || key == nil {
+		fmt.Println("Amount and seed are required")
+		os.Exit(1)
+	}
+	amount := parseAmount(c.String("amount"))
+
+	// Create tx and sign it
+	tx := &data.TrustSet{
+		LimitAmount:      *amount,
+	}
+	tx.TransactionType = data.TRUST_SET
+
+	tx.QualityOut = new(uint32)
+	*tx.QualityOut = uint32(c.Float64("quality-out")*1000000000)
+
+	tx.QualityIn = new(uint32)
+	*tx.QualityIn = uint32(c.Float64("quality-in")*1000000000)
+
+	tx.Flags = new(data.TransactionFlag)
+	if c.Bool("auth") {
+		*tx.Flags = *tx.Flags | data.TxSetAuth
+	}
+	if c.Bool("noripple") {
+		*tx.Flags = *tx.Flags | data.TxSetNoRipple
+	}
+	if c.Bool("clear-noripple") {
+		*tx.Flags = *tx.Flags | data.TxClearNoRipple
+	}
+	if c.Bool("freeze") {
+		*tx.Flags = *tx.Flags | data.TxSetFreeze
+	}
+	if c.Bool("clear-freeze") {
+		*tx.Flags = *tx.Flags | data.TxClearFreeze
+	}
+
+	sign(c, tx, 0)
+	outputTx(c, tx)
+}
+
 func submit(c *cli.Context) {
 	bs, err := ioutil.ReadAll(os.Stdin)
 	checkErr(err)
@@ -201,6 +242,22 @@ func main() {
 			cli.BoolFlag{Name: "nodirect,r", Usage: "do not look for direct path"},
 			cli.BoolFlag{Name: "partial,p", Usage: "permit partial payment"},
 			cli.BoolFlag{Name: "limit,l", Usage: "limit quality"},
+		},
+	}, {
+		Name:        "trust",
+		ShortName:   "t",
+		Usage:       "set trust",
+		Description: "seed, sequence, destination and amount are required",
+		Action:      trust,
+		Flags: []cli.Flag{
+			cli.StringFlag{Name: "amount,a", Value: "", Usage: "trust limit"},
+			cli.Float64Flag{Name: "quality-out,q", Value: 1.0, Usage: "> 1.0 to charge a fee"},
+			cli.Float64Flag{Name: "quality-in,Q", Value: 1.0, Usage: "< 1.0 to charge a fee"},
+			cli.BoolFlag{Name: "auth,A", Usage: "SetAuth"},
+			cli.BoolFlag{Name: "noripple,n", Usage: "no rippling on this trustline"},
+			cli.BoolFlag{Name: "clear-noripple,N", Usage: "re-enable rippling on this trustline"},
+			cli.BoolFlag{Name: "freeze,f", Usage: "freeze this trustline"},
+			cli.BoolFlag{Name: "clear-freeze,F", Usage: "unfreeze this trustline"},
 		},
 	}, {
 		Name:        "submit",
