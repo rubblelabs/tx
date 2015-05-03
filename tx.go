@@ -21,14 +21,6 @@ func checkErr(err error) {
 	}
 }
 
-func parseSeed(s string) crypto.Key {
-	seed, err := crypto.NewRippleHashCheck(s, crypto.RIPPLE_FAMILY_SEED)
-	checkErr(err)
-	key, err := crypto.NewECDSAKey(seed.Payload())
-	checkErr(err)
-	return key
-}
-
 func parseAccount(s string) *data.Account {
 	account, err := data.NewAccountFromAddress(s)
 	checkErr(err)
@@ -54,6 +46,7 @@ func parsePaths(s string) *data.PathSet {
 func sign(c *cli.Context, tx data.Transaction) {
 	base := tx.GetBase()
 	base.Sequence = uint32(c.GlobalInt("sequence"))
+	copy(base.Account[:], key.Id(keySequence))
 	if c.GlobalInt("lastledger") > 0 {
 		base.LastLedgerSequence = new(uint32)
 		*base.LastLedgerSequence = uint32(c.GlobalInt("lastledger"))
@@ -66,8 +59,7 @@ func sign(c *cli.Context, tx data.Transaction) {
 		checkErr(err)
 		base.Fee = *fee
 	}
-	var sequenceZero uint32
-	checkErr(data.Sign(tx, key, &sequenceZero))
+	checkErr(data.Sign(tx, key, keySequence))
 }
 
 func submitTx(tx data.Transaction) {
@@ -87,7 +79,7 @@ func outputTx(c *cli.Context, tx data.Transaction) {
 		if c.GlobalBool("binary") {
 			os.Stdout.Write(raw)
 		} else {
-			fmt.Printf("Hash: %X\nRaw: %X\n", hash, raw)
+			fmt.Printf("Hash: %s\nRaw: %X\n", hash, raw)
 		}
 	}
 
@@ -192,14 +184,27 @@ func submit(c *cli.Context) {
 }
 
 func common(c *cli.Context) error {
-	if c.GlobalString("seed") != "" {
-		key = parseSeed(c.String("seed"))
+	if c.GlobalString("seed") == "" {
+		return fmt.Errorf("No seed specified")
 	}
-
-	return nil
+	seed, err := crypto.NewRippleHashCheck(c.GlobalString("seed"), crypto.RIPPLE_FAMILY_SEED)
+	if err != nil {
+		return err
+	}
+	if c.GlobalBool("ed25519") {
+		key, err = crypto.NewEd25519Key(seed.Payload())
+	} else {
+		key, err = crypto.NewECDSAKey(seed.Payload())
+		seq := uint32(0)
+		keySequence = &seq
+	}
+	return err
 }
 
-var key crypto.Key
+var (
+	key         crypto.Key
+	keySequence *uint32
+)
 
 func main() {
 	app := cli.NewApp()
@@ -208,6 +213,7 @@ func main() {
 	app.Version = "0.1"
 	app.Flags = []cli.Flag{
 		cli.StringFlag{Name: "seed,s", Value: "", Usage: "the seed for the submitting account"},
+		cli.BoolFlag{Name: "ed25519,e", Usage: "seed is for an ed25519 account"},
 		cli.IntFlag{Name: "fee,f", Value: 10, Usage: "the fee you want to pay"},
 		cli.IntFlag{Name: "sequence,q", Value: 0, Usage: "the sequence for the transaction"},
 		cli.IntFlag{Name: "lastledger,l", Value: 0, Usage: "highest ledger number that the transaction can appear in"},
