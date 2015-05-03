@@ -66,7 +66,8 @@ func sign(c *cli.Context, tx data.Transaction, sequence int32) {
 		checkErr(err)
 		base.Fee = *fee
 	}
-	checkErr(data.Sign(tx, key, 0))
+	var sequenceZero uint32
+	checkErr(data.Sign(tx, key, &sequenceZero))
 }
 
 func submitTx(tx data.Transaction) {
