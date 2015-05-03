@@ -51,7 +51,7 @@ func parsePaths(s string) *data.PathSet {
 	return &ps
 }
 
-func sign(c *cli.Context, tx data.Transaction, sequence int32) {
+func sign(c *cli.Context, tx data.Transaction) {
 	base := tx.GetBase()
 	base.Sequence = uint32(c.GlobalInt("sequence"))
 	if c.GlobalInt("lastledger") > 0 {
@@ -177,7 +177,7 @@ func trust(c *cli.Context) {
 		*tx.Flags = *tx.Flags | data.TxClearFreeze
 	}
 
-	sign(c, tx, 0)
+	sign(c, tx)
 	outputTx(c, tx)
 }
 
