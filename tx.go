@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/codegangsta/cli"
 	"github.com/rubblelabs/ripple/crypto"
 	"github.com/rubblelabs/ripple/data"
 	"github.com/rubblelabs/ripple/websockets"
-	"io/ioutil"
-	"os"
-	"strings"
 )
 
 func checkErr(err error) {
@@ -20,10 +21,10 @@ func checkErr(err error) {
 	}
 }
 
-func parseSeed(s string) *crypto.RootDeterministicKey {
+func parseSeed(s string) crypto.Key {
 	seed, err := crypto.NewRippleHashCheck(s, crypto.RIPPLE_FAMILY_SEED)
 	checkErr(err)
-	key, err := crypto.GenerateRootDeterministicKey(seed.Payload())
+	key, err := crypto.NewECDSAKey(seed.Payload())
 	checkErr(err)
 	return key
 }
@@ -51,15 +52,8 @@ func parsePaths(s string) *data.PathSet {
 }
 
 func sign(c *cli.Context, tx data.Transaction, sequence int32) {
-	priv, err := key.GenerateAccountKey(sequence)
-	checkErr(err)
-	id, err := key.GenerateAccountId(sequence)
-	checkErr(err)
-	pub, err := priv.PublicAccountKey()
-	checkErr(err)
 	base := tx.GetBase()
 	base.Sequence = uint32(c.GlobalInt("sequence"))
-	base.SigningPubKey = new(data.PublicKey)
 	if c.GlobalInt("lastledger") > 0 {
 		base.LastLedgerSequence = new(uint32)
 		*base.LastLedgerSequence = uint32(c.GlobalInt("lastledger"))
@@ -67,15 +61,12 @@ func sign(c *cli.Context, tx data.Transaction, sequence int32) {
 	if base.Flags == nil {
 		base.Flags = new(data.TransactionFlag)
 	}
-	copy(base.Account[:], id.Payload())
-	copy(base.SigningPubKey[:], pub.Payload())
 	if c.GlobalString("fee") != "" {
 		fee, err := data.NewNativeValue(int64(c.GlobalInt("fee")))
 		checkErr(err)
 		base.Fee = *fee
 	}
-	tx.GetBase().TxnSignature = &data.VariableLength{}
-	checkErr(data.Sign(tx, priv))
+	checkErr(data.Sign(tx, key, 0))
 }
 
 func submitTx(tx data.Transaction) {
@@ -144,8 +135,7 @@ func payment(c *cli.Context) {
 	if c.Bool("limit") {
 		*payment.Flags = *payment.Flags | data.TxLimitQuality
 	}
-
-	sign(c, payment, 0)
+	sign(c, payment)
 	outputTx(c, payment)
 }
 
@@ -159,15 +149,15 @@ func trust(c *cli.Context) {
 
 	// Create tx and sign it
 	tx := &data.TrustSet{
-		LimitAmount:      *amount,
+		LimitAmount: *amount,
 	}
 	tx.TransactionType = data.TRUST_SET
 
 	tx.QualityOut = new(uint32)
-	*tx.QualityOut = uint32(c.Float64("quality-out")*1000000000)
+	*tx.QualityOut = uint32(c.Float64("quality-out") * 1000000000)
 
 	tx.QualityIn = new(uint32)
-	*tx.QualityIn = uint32(c.Float64("quality-in")*1000000000)
+	*tx.QualityIn = uint32(c.Float64("quality-in") * 1000000000)
 
 	tx.Flags = new(data.TransactionFlag)
 	if c.Bool("auth") {
@@ -208,7 +198,7 @@ func common(c *cli.Context) error {
 	return nil
 }
 
-var key *crypto.RootDeterministicKey
+var key crypto.Key
 
 func main() {
 	app := cli.NewApp()
